@@ -1,6 +1,7 @@
 package com.spring;
 
 import java.io.File;
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URL;
 import java.util.concurrent.ConcurrentHashMap;
@@ -55,7 +56,28 @@ public class SifanApplicationContext {
         Class clazz = beanDefinition.getClazz();
         try {
             // 获取空构造参数，来创建对象返回
-            return clazz.getDeclaredConstructor().newInstance();
+            Object instance = clazz.getDeclaredConstructor().newInstance();
+            // 依赖注入
+            for (Field field : clazz.getDeclaredFields()) {
+                if (field.isAnnotationPresent(AutoWired.class)) {
+                    if (field.isAnnotationPresent(Scope.class)
+                            && field.getDeclaredAnnotation(Scope.class).value().equals("prototype")) {
+                        Object bean = getBean(field.getName());
+                        field.setAccessible(true);
+                        field.set(instance, bean);
+                    } else {
+                        Object bean;
+                        if (singletonObjects.containsKey(field.getName())) {
+                            bean = singletonObjects.get(field.getName());
+                        } else {
+                            bean = createBean(beanDefinitionMap.get(field.getName()));
+                        }
+                        field.setAccessible(true);
+                        field.set(instance, bean);
+                    }
+                }
+            }
+            return instance;
         } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
             e.printStackTrace();
         }

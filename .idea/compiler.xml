@@ -10,5 +10,8 @@
         <module name="devlop-spring" />
       </profile>
     </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="devlop-frame" target="8" />
+    </bytecodeTargetLevel>
   </component>
 </project>
