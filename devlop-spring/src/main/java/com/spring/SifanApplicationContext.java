@@ -4,6 +4,8 @@ import java.io.File;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -25,6 +27,9 @@ public class SifanApplicationContext {
     private ConcurrentHashMap<String, BeanDefinition> beanDefinitionMap
             = new ConcurrentHashMap<>();
 
+    // 存储特殊的Bean
+    private List<BeanPostProcessor> beanPostProcessorList
+            = new ArrayList<>();
 
     /**
      * sifan应用程序上下文构造方法
@@ -85,7 +90,10 @@ public class SifanApplicationContext {
             if (instance instanceof BeanNameAware) {
                 ((BeanNameAware) instance).setBeanName(beanName);
             }
-
+            // 初始化前置处理
+            for (BeanPostProcessor beanPostProcessor : beanPostProcessorList) {
+                instance = beanPostProcessor.postProcessBeforeInitialization(instance, beanName);
+            }
             // instance 初始化
             if (instance instanceof InitializingBean) {
                 try {
@@ -93,6 +101,10 @@ public class SifanApplicationContext {
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
+            }
+            // 初始化后置处理
+            for (BeanPostProcessor beanPostProcessor : beanPostProcessorList) {
+                instance = beanPostProcessor.postProcessAfterInitialization(instance, beanName);
             }
             return instance;
         } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
@@ -126,6 +138,17 @@ public class SifanApplicationContext {
                         clazz = classLoader.loadClass(path + "." + className);
                         // 如果存在组件注解
                         if (clazz.isAnnotationPresent(Component.class)) {
+                            // 如果实现了BeanPostProcessor处理接口
+                            if (BeanPostProcessor.class.isAssignableFrom(clazz)) {
+                                try {
+                                    BeanPostProcessor instance
+                                            = (BeanPostProcessor) clazz.getDeclaredConstructor().newInstance();
+                                    beanPostProcessorList.add(instance);
+                                    continue;
+                                } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+                                    e.printStackTrace();
+                                }
+                            }
                             // 表示是当前类一个bean
                             // 解析当前类是单例bean还是prototype的bean
                             // BeanDefinition 定义Bean

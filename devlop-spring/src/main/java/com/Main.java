@@ -11,5 +11,6 @@ public class Main {
         RoomService roomService
                 = (RoomService) applicationContext.getBean("roomService");
         System.out.println(roomService);
+        System.out.println(roomService.getName());
     }
 }
