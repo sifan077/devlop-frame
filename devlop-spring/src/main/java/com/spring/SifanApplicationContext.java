@@ -39,7 +39,7 @@ public class SifanApplicationContext {
         beanDefinitionMap.forEach((beanName, beanDefinition) -> {
             // 如果不是原型Bean对象就创建对象加入单例对象池
             if (!beanDefinition.getScope().equals("prototype")) {
-                Object object = createBean(beanDefinition);
+                Object object = createBean(beanName,beanDefinition);
                 singletonObjects.put(beanName, object);
             }
         });
@@ -51,7 +51,7 @@ public class SifanApplicationContext {
      * @param beanDefinition bean定义
      * @return {@link Object}
      */
-    private Object createBean(BeanDefinition beanDefinition) {
+    private Object createBean(String beanName,BeanDefinition beanDefinition) {
         // 从类定义中获取Class
         Class clazz = beanDefinition.getClazz();
         try {
@@ -70,11 +70,14 @@ public class SifanApplicationContext {
                         if (singletonObjects.containsKey(field.getName())) {
                             bean = singletonObjects.get(field.getName());
                         } else {
-                            bean = createBean(beanDefinitionMap.get(field.getName()));
+                            bean = createBean(field.getName(),beanDefinitionMap.get(field.getName()));
                         }
                         field.setAccessible(true);
                         field.set(instance, bean);
                     }
+                }
+                if (instance instanceof BeanNameAware) {
+                    ((BeanNameAware) instance).setBeanName(beanName);
                 }
             }
             return instance;
@@ -155,7 +158,7 @@ public class SifanApplicationContext {
                 return singletonObjects.get(beanName);
             } else {
                 // 否则,创建一个prototype对象返回
-                return createBean(beanDefinition);
+                return createBean(beanName,beanDefinition);
             }
         } else {
             throw new NullPointerException("不存在对应的Bean对象");
