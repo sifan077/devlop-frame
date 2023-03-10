@@ -39,7 +39,7 @@ public class SifanApplicationContext {
         beanDefinitionMap.forEach((beanName, beanDefinition) -> {
             // 如果不是原型Bean对象就创建对象加入单例对象池
             if (!beanDefinition.getScope().equals("prototype")) {
-                Object object = createBean(beanName,beanDefinition);
+                Object object = createBean(beanName, beanDefinition);
                 singletonObjects.put(beanName, object);
             }
         });
@@ -51,7 +51,7 @@ public class SifanApplicationContext {
      * @param beanDefinition bean定义
      * @return {@link Object}
      */
-    private Object createBean(String beanName,BeanDefinition beanDefinition) {
+    private Object createBean(String beanName, BeanDefinition beanDefinition) {
         // 从类定义中获取Class
         Class clazz = beanDefinition.getClazz();
         try {
@@ -59,25 +59,39 @@ public class SifanApplicationContext {
             Object instance = clazz.getDeclaredConstructor().newInstance();
             // 依赖注入
             for (Field field : clazz.getDeclaredFields()) {
+                // 如果是自动导入的字段
                 if (field.isAnnotationPresent(AutoWired.class)) {
+                    // 如果是prototype原型Bean，调用GetBean自动创建
                     if (field.isAnnotationPresent(Scope.class)
                             && field.getDeclaredAnnotation(Scope.class).value().equals("prototype")) {
                         Object bean = getBean(field.getName());
                         field.setAccessible(true);
                         field.set(instance, bean);
                     } else {
+                        // 如果是单例Bean，先从单例对象池获取，如果不存在则创建
                         Object bean;
                         if (singletonObjects.containsKey(field.getName())) {
                             bean = singletonObjects.get(field.getName());
                         } else {
-                            bean = createBean(field.getName(),beanDefinitionMap.get(field.getName()));
+                            bean = createBean(field.getName(), beanDefinitionMap.get(field.getName()));
+                            singletonObjects.put(field.getName(), bean);
                         }
                         field.setAccessible(true);
                         field.set(instance, bean);
                     }
                 }
-                if (instance instanceof BeanNameAware) {
-                    ((BeanNameAware) instance).setBeanName(beanName);
+            }
+            // Aware回调
+            if (instance instanceof BeanNameAware) {
+                ((BeanNameAware) instance).setBeanName(beanName);
+            }
+
+            // instance 初始化
+            if (instance instanceof InitializingBean) {
+                try {
+                    ((InitializingBean) instance).afterPropertiesSet();
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
             }
             return instance;
@@ -158,7 +172,7 @@ public class SifanApplicationContext {
                 return singletonObjects.get(beanName);
             } else {
                 // 否则,创建一个prototype对象返回
-                return createBean(beanName,beanDefinition);
+                return createBean(beanName, beanDefinition);
             }
         } else {
             throw new NullPointerException("不存在对应的Bean对象");
