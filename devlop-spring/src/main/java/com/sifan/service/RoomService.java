@@ -1,10 +1,9 @@
 package com.sifan.service;
 
 import com.spring.Component;
-import com.spring.InitializingBean;
 
 @Component("roomService")
-public class RoomService implements InitializingBean {
+public class RoomService implements RoomInterface {
 
     private String name;
 
@@ -17,8 +16,7 @@ public class RoomService implements InitializingBean {
     }
 
     @Override
-    public void afterPropertiesSet() throws Exception {
-        System.out.println("afterPropertiesSet");
-        System.out.println("你好");
+    public void testRoom() {
+        System.out.println();
     }
 }
