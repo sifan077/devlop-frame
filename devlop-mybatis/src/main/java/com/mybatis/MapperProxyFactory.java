@@ -1,10 +1,7 @@
 package com.mybatis;
 
 import java.lang.reflect.*;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
+import java.sql.*;
 import java.util.*;
 
 public class MapperProxyFactory {
@@ -25,30 +22,31 @@ public class MapperProxyFactory {
                     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
                         Class.forName(driver);
                         Connection connection = DriverManager.getConnection(url, user, password);
-
-                        Select annotation = method.getAnnotation(Select.class);
-                        String sql = annotation.value();
-
-                        Map<String, Object> paramValueMapping = new HashMap<>();
-                        Parameter[] parameters = method.getParameters();
-                        for (int i = 0; i < parameters.length; i++) {
-                            String value = parameters[i].getAnnotation(Param.class).value();
-                            paramValueMapping.put(parameters[i].getName(), args[i]);
-                            paramValueMapping.put(value, args[i]);
+                        String sql = "";
+                        boolean isSelect = true;
+                        Select select = method.getAnnotation(Select.class);
+                        if (Objects.isNull(select)) {
+                            isSelect = false;
+                        } else {
+                            sql = select.value();
                         }
-                        ParameterMappingTokenHandler tokenHandler = new ParameterMappingTokenHandler();
-                        GenericTokenParser parser = new GenericTokenParser("#{", "}", tokenHandler);
-                        String parseSql = parser.parse(sql);
 
-                        List<ParameterMapping> parameterMappings = tokenHandler.getParameterMappings();
-
-                        PreparedStatement statement
-                                = connection.prepareStatement(parseSql);
-                        for (int i = 0; i < parameterMappings.size(); i++) {
-                            String property = parameterMappings.get(i).getProperty();
-                            Object o = paramValueMapping.get(property);
-                            typeHandlerMap.get(o.getClass()).setParameter(statement, i, o);
+                        Insert insert = method.getDeclaredAnnotation(Insert.class);
+                        if (!Objects.isNull(insert)) {
+                            sql = insert.value();
                         }
+                        Delete delete = method.getDeclaredAnnotation(Delete.class);
+                        if (!Objects.isNull(delete)) {
+                            sql = delete.value();
+                        }
+                        Update update = method.getDeclaredAnnotation(Update.class);
+                        if (!Objects.isNull(update)) {
+                            sql = update.value();
+                        }
+
+                        PreparedStatement statement = getPreparedStatement(method, args, connection, sql, typeHandlerMap);
+                        if (!isSelect) return statement.executeUpdate();
+
 
                         ResultSet resultSet = statement.executeQuery();
                         Class<?> returnType = method.getReturnType();
@@ -83,6 +81,30 @@ public class MapperProxyFactory {
                 });
 
         return (T) instance;
+    }
+
+    private static PreparedStatement getPreparedStatement(Method method, Object[] args, Connection connection, String sql, Map<Class, TypeHandler> typeHandlerMap) throws SQLException {
+        Map<String, Object> paramValueMapping = new HashMap<>();
+        Parameter[] parameters = method.getParameters();
+        for (int i = 0; i < parameters.length; i++) {
+            String value = parameters[i].getAnnotation(Param.class).value();
+            paramValueMapping.put(parameters[i].getName(), args[i]);
+            paramValueMapping.put(value, args[i]);
+        }
+        ParameterMappingTokenHandler tokenHandler = new ParameterMappingTokenHandler();
+        GenericTokenParser parser = new GenericTokenParser("#{", "}", tokenHandler);
+        String parseSql = parser.parse(sql);
+
+        List<ParameterMapping> parameterMappings = tokenHandler.getParameterMappings();
+
+        PreparedStatement statement
+                = connection.prepareStatement(parseSql);
+        for (int i = 0; i < parameterMappings.size(); i++) {
+            String property = parameterMappings.get(i).getProperty();
+            Object o = paramValueMapping.get(property);
+            typeHandlerMap.get(o.getClass()).setParameter(statement, i, o);
+        }
+        return statement;
     }
 
     private static void makeSingleInstance(ResultSet resultSet, Class resultType, Object newInstance, Map<Class, TypeHandler> typeHandlerMap) throws NoSuchFieldException, java.sql.SQLException, IllegalAccessException, InvocationTargetException {
