@@ -7,6 +7,7 @@
         <option value="$PROJECT_DIR$/pom.xml" />
         <option value="$PROJECT_DIR$/devlop-spring/pom.xml" />
         <option value="$PROJECT_DIR$/devlop-mybatis/pom.xml" />
+        <option value="$PROJECT_DIR$/devlop-spring-mvc/pom.xml" />
       </list>
     </option>
   </component>
